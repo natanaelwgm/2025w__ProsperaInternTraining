@@ -33,6 +33,117 @@ This session covers essential Stata programming concepts to help interns develop
 - **Orchestration**
   - `do` - Running scripts from within scripts for modular workflows
 
+## Concepts Used in Each Script
+
+### LIVECODING.do
+This script demonstrates most of the concepts in a single file and shows the evolution of the code:
+- **Looping**: Uses `foreach` to process multiple files and iterate through variables
+  ```stata
+  foreach num in `numbers' {
+    sysuse auto, clear 
+    gen row = _n
+    keep if mod(row, `num') == 0
+    save "...auto_baris_kelipatan_`num'.dta" , replace
+  }
+  ```
+- **Flow Control**: Uses `if/else` to conditionally execute code blocks
+  ```stata
+  if $REIMPORT_FROM_DBF == 1 {
+    import dbase using "...sak2408_diseminasi_part`num'.dbf", clear 
+    save "...sak2408_diseminasi_part`num'.dta" , replace
+  }
+  ```
+- **Macros**: Demonstrates both `local` and `global` variables
+  ```stata
+  local jumlahVariable = 0
+  foreach var of varlist _all {
+    local jumlahVariable = `jumlahVariable' + 1
+  }
+  ```
+- **File Operations**: Shows directory listing and file handling
+  ```stata
+  local all_files_in_dir : dir "..." files "*.dta"
+  ```
+
+### 00_orchestrator.do
+This script demonstrates the orchestration pattern:
+- **Global Variables**: Sets up global variables for directory paths and execution flags
+  ```stata
+  global datadir  "..."
+  global do_importing = 0
+  global do_preparing = 1
+  global do_analysis = 1
+  ```
+- **Flow Control**: Uses if statements to conditionally execute each step
+  ```stata
+  if $do_importing == 1 {
+    do "${datadir}/01_importing_data.do"
+  }
+  ```
+- **Orchestration**: Shows how to call other do-files from a master file
+
+### 01_importing_data.do
+This script focuses on data import and preparation:
+- **Looping**: Uses `foreach` with `numlist` to process multiple data files
+  ```stata
+  foreach num of numlist 1 2 {
+    // process file part1, part2, etc.
+  }
+  ```
+- **Flow Control**: Conditional execution based on global flags
+  ```stata
+  if $REIMPORT_FROM_DBF == 1 {
+    // import from DBF
+  }
+  
+  if $CHECK_DATA_DIMENSION == 1 {
+    // check dimensions
+  }
+  ```
+- **Data Operations**: Demonstrates merging datasets
+  ```stata
+  merge 1:1 URUTAN using "${datadir}/sak2408_diseminasi_part2.dta"
+  ```
+
+### 02_preparing_data.do
+This script shows data transformation:
+- **Variable Creation**: Uses egen to create derived variables
+  ```stata
+  egen income = rowtotal(R16_1 R16_2)
+  ```
+- **Recoding**: Shows how to recode variables into more usable forms
+  ```stata
+  recode R6A (1 = 1 "No formal education") (2 = 2 "Primary") (3/6 = 3 "Secondary") (7/12 = 4 "Tertiary"), gen(education)
+  ```
+
+### 03_analysis_data.do
+This script demonstrates advanced techniques:
+- **Data Aggregation**: Uses collapse for summarizing data
+  ```stata
+  collapse (mean) income if status == 2 [iw = WEIGHT], by(sex education KODE_PROV)
+  ```
+- **Reshaping**: Shows how to reshape data from long to wide format
+  ```stata
+  reshape wide income, i(KODE_PROV education) j(sex) string
+  ```
+- **Looping with Levelsof**: Demonstrates how to iterate through unique values
+  ```stata
+  levelsof KODE_PROV, local(kodeprovs)
+  foreach kodeprov in `kodeprovs' {
+    // code for each province
+  }
+  ```
+- **Preserve/Restore**: Shows how to work with temporary data states
+  ```stata
+  preserve
+    // manipulate data
+  restore
+  ```
+- **Exporting**: Demonstrates exporting to Excel with sheet management
+  ```stata
+  export excel using "${resultExcel}", first(variables) sheet("Prov_`kodeprov'", replace)
+  ```
+
 ## Directory Structure
 
 The data and scripts are contained in the `Data Mikro Survei_Angkatan_Kerja_Nasional_2024_Agustus/` directory, which includes:
